@@ -11,82 +11,79 @@
 #include <sys/socket.h>
 
 
-#define PACKETSIZE	64
+#define PACKETSIZE 64
 
 
 
-void cal_ping_t(struct sockaddr_in *addr, int pid);
+void printTime(struct timeval t0, struct timeval t1);
 unsigned short check_sum(void *b, int len);
-struct protoent *proto=NULL;
+
 
 
 
 struct packet { 
 struct icmphdr hdr;
-	char msg[PACKETSIZE-sizeof(struct icmphdr)];
+char msg[PACKETSIZE-sizeof(struct icmphdr)];
 };
 
-int main()
-{	
+int main(int argc, char *argv[]) {	
 	int pid = getpid();
-	struct hostent *hname;
+	struct hostent *server;
 	struct sockaddr_in addr;
-	proto = getprotobyname("ICMP");
-	hname = gethostbyname("www.google.com");
-	bzero(&addr, sizeof(addr));
-	addr.sin_family = hname->h_addrtype;
-	addr.sin_port = 0;
-	addr.sin_addr.s_addr = *(long*)hname->h_addr;
-	cal_ping_t(&addr, pid);
-	return 0;
-}
 
-void cal_ping_t(struct sockaddr_in *addr, int pid)
-{	const int val=255;
+	if(argc == 1) {
+	server = gethostbyname("www.google.com");
+	} else server = gethostbyname(argv[1]);
+
+	bzero(&addr, sizeof(addr));
+	addr.sin_family = server->h_addrtype;
+	addr.sin_port = 0;
+	addr.sin_addr.s_addr = *(long*)server->h_addr;
+	const int val=255;
 	int cnt=1;
 	struct packet pckt;
 	struct sockaddr_in r_addr;
-   	float elapsed_mill;
-	float elapsed_micro;
-  	struct timeval t0;
-   	struct timeval t1;
-	int sock = socket(PF_INET, SOCK_RAW, proto->p_proto);
+  	struct timeval t0, t1;
+	int sock = socket(PF_INET, SOCK_RAW, IPPROTO_ICMP);
 	setsockopt(sock, SOL_IP, IP_TTL, &val, sizeof(val));
 	fcntl(sock, F_SETFL, O_NONBLOCK);
-		bzero(&pckt, sizeof(pckt));
-		int len=sizeof(r_addr);
-		pckt.hdr.type = ICMP_ECHO;
-		pckt.hdr.un.echo.id = pid;
-		int i;
-		for (i = 0; i < sizeof(pckt.msg)-1; i++ ){
-			pckt.msg[i] = i+'0';
-        }
-		pckt.msg[i] = 0;
-		pckt.hdr.un.echo.sequence = cnt++;
-		pckt.hdr.checksum = check_sum(&pckt, sizeof(pckt));
+	bzero(&pckt, sizeof(pckt));
+	int len=sizeof(r_addr);
+	pckt.hdr.type = ICMP_ECHO;
+	pckt.hdr.un.echo.id = pid;
+	int i;
+	for (i = 0; i < sizeof(pckt.msg)-1; i++ ){
+		pckt.msg[i] = i+'0';
+	}
+	pckt.msg[i] = 0;
+	pckt.hdr.un.echo.sequence = cnt++;
+	pckt.hdr.checksum = check_sum(&pckt, sizeof(pckt));
 
 
 
-		gettimeofday(&t0, NULL);
-		sendto(sock, &pckt, sizeof(pckt), 0, (struct sockaddr*)addr, sizeof(*addr));
-		while (1) {
-		    if ( recvfrom(sock, &pckt, sizeof(pckt), 0, (struct sockaddr*)&r_addr, &len) > 0 )
-			break;		
-		}
+	gettimeofday(&t0, NULL);
+	sendto(sock, &pckt, sizeof(pckt), 0, (struct sockaddr*)&addr, sizeof(addr));
+	while (1) {
+	    if ( recvfrom(sock, &pckt, sizeof(pckt), 0, (struct sockaddr*)&r_addr, &len) > 0 )
+		break;		
+	}
 
-		gettimeofday(&t1, NULL);
+	gettimeofday(&t1, NULL);
 
 
+	printTime( t0, t1);
+	return 0;
+}
 
-		elapsed_mill = (t1.tv_sec - t0.tv_sec) * 1000.0f + (t1.tv_usec - t0.tv_usec) / 1000.0f;
-		elapsed_micro =elapsed_mill *1000;
-		printf("\n");
-		printf("////////////////////////////////////////////////////////////////\n");
-		printf("\n");
-   		printf("	in milliseconds: %f\n", elapsed_mill);
-   		printf("	in microseconds:  %f\n", elapsed_micro);
-		printf("\n");
-		printf("////////////////////////////////////////////////////////////////\n");
+void printTime(struct timeval t0, struct timeval t1) {	
+
+	float  elapsed_mill = (t1.tv_sec - t0.tv_sec) * 1000.0f + (t1.tv_usec - t0.tv_usec) / 1000.0f;
+	float  elapsed_micro =elapsed_mill *1000;
+	printf("\n");
+	printf("---------------------------------------------------------\n\n");
+	printf("in milliseconds: %f\n", elapsed_mill);
+	printf("in microseconds:  %f\n\n", elapsed_micro);
+	printf("---------------------------------------------------------\n\n");
 
 }
 
