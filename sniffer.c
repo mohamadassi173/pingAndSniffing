@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <pcap.h>
 
-void get_det(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
+void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
   pcap_t *handle;
   char errbuf[PCAP_ERRBUF_SIZE];
   struct bpf_program f_prog;
@@ -31,19 +31,18 @@ struct ip_header {
 };
 
 
-int main(){
-	printf("\n"); 
-	printf("WAITING...\n"); 
+int main(){ 
+  printf("\nWAITING...\n"); 
   handle = pcap_open_live("enp0s3", BUFSIZ, 1, 1000, errbuf); 
   pcap_compile(handle, &f_prog, "icmp", 0, net);      
   pcap_setfilter(handle, &f_prog);                             
-  pcap_loop(handle, -1, get_det, NULL);                
+  pcap_loop(handle, -1, got_packet, NULL);                
   pcap_close(handle);
   return 0;
 }
 
 
-void get_det(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
+void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
   struct ethernet_header *ethernet = (struct ethernet_header *) packet;
   if (ntohs(ethernet->ether_type) == 0x0800) {
     struct ip_header * ip = (struct ip_header *) (packet + sizeof(struct ethernet_header)); 
